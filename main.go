@@ -3,8 +3,8 @@ package main
 import (
 	"log"
 
-	"github.com/maddevsio/telecomedian/bot"
-	"github.com/maddevsio/telecomedian/config"
+	"github.com/maddevsio/punisher/bot"
+	"github.com/maddevsio/punisher/config"
 )
 
 func main() {

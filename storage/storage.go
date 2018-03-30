@@ -8,8 +8,8 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
-	"github.com/maddevsio/telecomedian/config"
-	"github.com/maddevsio/telecomedian/model"
+	"github.com/maddevsio/punisher/config"
+	"github.com/maddevsio/punisher/model"
 )
 
 // MySQL provides api for work with mysql database

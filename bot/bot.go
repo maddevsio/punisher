@@ -8,9 +8,9 @@ import (
 	"github.com/davecgh/go-spew/spew"
 
 	"github.com/jasonlvhit/gocron"
-	"github.com/maddevsio/telecomedian/config"
-	"github.com/maddevsio/telecomedian/model"
-	"github.com/maddevsio/telecomedian/storage"
+	"github.com/maddevsio/punisher/config"
+	"github.com/maddevsio/punisher/model"
+	"github.com/maddevsio/punisher/storage"
 	"github.com/pkg/errors"
 	"gopkg.in/telegram-bot-api.v4"
 )
