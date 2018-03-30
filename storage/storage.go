@@ -85,3 +85,59 @@ func (m *MySQL) ListStandups() ([]model.Standup, error) {
 	err := m.conn.Select(&items, "SELECT * FROM `standup`")
 	return items, err
 }
+func (m *MySQL) LastStandupFor(username string) (model.Standup, error) {
+	var standup model.Standup
+	err := m.conn.Get(&standup, "SELECT * FROM `standup` WHERE username=? ORDER BY id DESC LIMIT 1", username)
+	return standup, err
+}
+
+// CreateLive creates live for user
+func (m *MySQL) CreateLive(s model.Live) (model.Live, error) {
+	res, err := m.conn.Exec(
+		"INSERT INTO `lives` (username, lives) VALUES (?, ?)",
+		s.Username, s.Lives,
+	)
+	if err != nil {
+		return s, err
+	}
+	id, err := res.LastInsertId()
+	if err != nil {
+		return s, err
+	}
+	s.ID = id
+	return s, nil
+}
+
+// UpdateLive updates standup entry in database
+func (m *MySQL) UpdateLive(s model.Live) (model.Live, error) {
+	_, err := m.conn.Exec(
+		"UPDATE `lives` SET username=?, lives=? WHERE id=?",
+		s.Username, s.Lives, s.ID,
+	)
+	if err != nil {
+		return s, err
+	}
+	var i model.Live
+	err = m.conn.Get(&i, "SELECT * FROM `lives` WHERE id=?", s.ID)
+	return i, err
+}
+
+// SelectLive selects standup entry from database
+func (m *MySQL) SelectLive(id int64) (model.Live, error) {
+	var s model.Live
+	err := m.conn.Get(&s, "SELECT * FROM `lives` WHERE id=?", id)
+	return s, err
+}
+
+// DeleteLive deletes standup entry from database
+func (m *MySQL) DeleteLive(id int64) error {
+	_, err := m.conn.Exec("DELETE FROM `lives` WHERE id=?", id)
+	return err
+}
+
+// ListLives returns array of standup entries from database
+func (m *MySQL) ListLives() ([]model.Live, error) {
+	items := []model.Live{}
+	err := m.conn.Select(&items, "SELECT * FROM `lives`")
+	return items, err
+}

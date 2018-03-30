@@ -8,16 +8,16 @@
   version = "v1.1.0"
 
 [[projects]]
-  branch = "master"
-  name = "github.com/go-courses/youtubebot"
-  packages = ["conf"]
-  revision = "35e3625ba82199d1958b01bd2f731ddaada02cea"
-
-[[projects]]
   name = "github.com/go-sql-driver/mysql"
   packages = ["."]
   revision = "a0583e0143b1624142adab07e0e97fe106d99561"
   version = "v1.3"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/jasonlvhit/gocron"
+  packages = ["."]
+  revision = "54194c9749d48b073c9aeb2c787b6882e95dd0cd"
 
 [[projects]]
   branch = "master"
@@ -30,12 +30,6 @@
   packages = ["."]
   revision = "f611eb38b3875cc3bd991ca91c51d06446afa14c"
   version = "v1.3.0"
-
-[[projects]]
-  branch = "master"
-  name = "github.com/maddevsio/comedian"
-  packages = ["config","model"]
-  revision = "6056745d2e4ef9c2a3ce56edddfc6feb70722c6b"
 
 [[projects]]
   name = "github.com/pkg/errors"
@@ -62,18 +56,6 @@
   version = "v1.0.1"
 
 [[projects]]
-  branch = "master"
-  name = "golang.org/x/net"
-  packages = ["context","context/ctxhttp"]
-  revision = "6078986fec03a1dcc236c34816c71b0e05018fda"
-
-[[projects]]
-  branch = "master"
-  name = "google.golang.org/api"
-  packages = ["gensupport","googleapi","googleapi/internal/uritemplates","youtube/v3"]
-  revision = "a213db537ac9b393526194a5c85ad6e546f7923f"
-
-[[projects]]
   name = "gopkg.in/telegram-bot-api.v4"
   packages = ["."]
   revision = "0e0af0c480ea98e982d5f4d45fb39577c6ab1e3e"
@@ -82,6 +64,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "e043bee9388239fe892ca82cc6be51c0189c6396595071f67fe55fd51be693ea"
+  inputs-digest = "98191c0d0ec7f09dec3c8cfa16aa6845c31c948e3df603d5b848e8789ba16c47"
   solver-name = "gps-cdcl"
   solver-version = 1

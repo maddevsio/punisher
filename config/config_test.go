@@ -13,5 +13,6 @@ func TestConfig(t *testing.T) {
 	c, err := GetConfig()
 	assert.NoError(t, err)
 	assert.Equal(t, "value", c.TelegramToken)
+	assert.Equal(t, "14:00", c.PunishTime)
 
 }

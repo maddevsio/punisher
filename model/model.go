@@ -11,4 +11,10 @@ type (
 		Username string    `db:"username" json:"userName"`
 		Comment  string    `db:"comment" json:"comment"`
 	}
+	// Live rerpesents intern lives
+	Live struct {
+		ID       int64  `db:"id"`
+		Username string `db:"username"`
+		Lives    int    `db:"lives"`
+	}
 )
