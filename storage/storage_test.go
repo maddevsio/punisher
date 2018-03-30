@@ -4,8 +4,8 @@ import (
 	"database/sql"
 	"testing"
 
-	"github.com/maddevsio/telecomedian/config"
-	"github.com/maddevsio/telecomedian/model"
+	"github.com/maddevsio/punisher/config"
+	"github.com/maddevsio/punisher/model"
 	"github.com/stretchr/testify/assert"
 )
 
