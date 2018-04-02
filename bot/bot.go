@@ -2,6 +2,7 @@ package bot
 
 import (
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -52,7 +53,7 @@ func NewTGBot(c *config.BotConfig) (*Bot, error) {
 	}
 	b.updates = updates
 	b.db = conn
-	gocron.Every(1).Day().At(c.PunishTime).Do(b.checkStandups)
+	gocron.Every(1).Day().At(c.PunishTime).Do(b.dailyJob)
 
 	return b, nil
 }
@@ -88,27 +89,36 @@ func (b *Bot) Start() {
 		}
 	}
 }
-func (b *Bot) checkStandups() {
+func (b *Bot) dailyJob() {
+	if err := b.checkStandups(); err != nil {
+		log.Println(err)
+	}
+}
+func (b *Bot) checkStandups() error {
+	if time.Now().Weekday().String() == "Saturday" || time.Now().Weekday().String() == "Sunday" {
+		return errors.New("day off")
+	}
 	lives, err := b.db.ListLives()
 	if err != nil {
-		fmt.Println(err)
+		return err
 	}
 	for _, live := range lives {
 		standup, err := b.db.LastStandupFor(live.Username)
 		if err != nil {
-			fmt.Println(err)
+			return err
 		}
 		if time.Now().Day() != standup.Created.Day() {
 			live.Lives--
 			_, err := b.db.UpdateLive(live)
 			if err != nil {
-				fmt.Println(err)
+				return err
 			}
 			b.LastLives(live)
-
 		}
 	}
+	return nil
 }
+
 func (b *Bot) isStandup(message *tgbotapi.Message) bool {
 	return strings.Contains(message.Text, "#standup")
 }
