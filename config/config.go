@@ -7,6 +7,7 @@ type BotConfig struct {
 	TelegramToken string `envconfig:"TELEGRAM_TOKEN"`
 	DatabaseURL   string `envconfig:"DATABASE_URL"`
 	PunishTime    string `envconfig:"PUNISH_TIME" default:"14:00"`
+	InternsChatID int64  `envconfig:"INTERNS_CHAT_ID"`
 }
 
 // GetConfig ...

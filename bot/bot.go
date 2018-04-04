@@ -6,8 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
-
 	"github.com/jasonlvhit/gocron"
 	"github.com/maddevsio/punisher/config"
 	"github.com/maddevsio/punisher/model"
@@ -69,23 +67,33 @@ func (b *Bot) Start() {
 	go func() {
 		<-gocron.Start()
 	}()
-	fmt.Println("Starting tg bot")
+	log.Println("Starting tg bot")
 	for update := range b.updates {
 		if update.Message == nil {
 			continue
 		}
-		spew.Dump(update.EditedMessage)
 		text := update.Message.Text
 		if text == "" || text == "/start" {
 			continue
 		}
 		if b.isStandup(update.Message) {
 			fmt.Printf("accepted standup from %s\n", update.Message.From.UserName)
-			spew.Dump(update.Message)
-			b.db.CreateStandup(model.Standup{
+			if _, err := b.db.CreateStandup(model.Standup{
 				Comment:  update.Message.Text,
 				Username: update.Message.From.UserName,
+			}); err != nil {
+				log.Println(err)
+				continue
+			}
+			b.tgAPI.Send(tgbotapi.NewMessage(-b.c.InternsChatID, fmt.Sprintf("@%s спасибо. Я принял твой стендап", update.Message.From.UserName)))
+
+			b.tgAPI.Send(tgbotapi.ForwardConfig{
+				FromChannelUsername: update.Message.From.UserName,
+				FromChatID:          -b.c.InternsChatID,
+				MessageID:           update.Message.MessageID,
+				BaseChat:            tgbotapi.BaseChat{ChatID: -319163668},
 			})
+
 		}
 	}
 }
@@ -116,6 +124,7 @@ func (b *Bot) checkStandups() error {
 			b.LastLives(live)
 		}
 	}
+	b.tgAPI.Send(tgbotapi.NewMessage(-b.c.InternsChatID, "Каратель завершил свою работу ;)"))
 	return nil
 }
 
@@ -124,5 +133,5 @@ func (b *Bot) isStandup(message *tgbotapi.Message) bool {
 }
 
 func (b *Bot) LastLives(live model.Live) {
-	b.tgAPI.Send(tgbotapi.NewMessage(-1001211952354, fmt.Sprintf("@%s осталось жизней: %d", live.Username, live.Lives)))
+	b.tgAPI.Send(tgbotapi.NewMessage(-b.c.InternsChatID, fmt.Sprintf("@%s осталось жизней: %d", live.Username, live.Lives)))
 }

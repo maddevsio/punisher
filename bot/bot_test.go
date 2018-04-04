@@ -22,5 +22,4 @@ func TestCheckStandups(t *testing.T) {
 	d = time.Date(2018, time.April, 7, 1, 2, 3, 4, time.UTC)
 	monkey.Patch(time.Now, func() time.Time { return d })
 	assert.Equal(t, errors.New("day off").Error(), b.checkStandups().Error())
-
 }
