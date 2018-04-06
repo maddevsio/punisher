@@ -1,6 +1,7 @@
 package bot
 
 import (
+	"database/sql"
 	"fmt"
 	"log"
 	"strings"
@@ -113,13 +114,25 @@ func (b *Bot) checkStandups() error {
 	for _, live := range lives {
 		standup, err := b.db.LastStandupFor(live.Username)
 		if err != nil {
-			return err
+			if err == sql.ErrNoRows {
+				live.Lives--
+				_, err := b.db.UpdateLive(live)
+				if err != nil {
+					log.Println(err)
+				}
+				b.LastLives(live)
+				continue
+			}
 		}
-		if time.Now().Day() != standup.Created.Day() {
+		t, err := time.LoadLocation("Asia/Bishkek")
+		if err != nil {
+			log.Println(err)
+		}
+		if time.Now().Day() != standup.Created.In(t).Day() {
 			live.Lives--
 			_, err := b.db.UpdateLive(live)
 			if err != nil {
-				return err
+				log.Println(err)
 			}
 			b.LastLives(live)
 		}
@@ -129,6 +142,7 @@ func (b *Bot) checkStandups() error {
 }
 
 func (b *Bot) isStandup(message *tgbotapi.Message) bool {
+	log.Println("checking accepted message")
 	return strings.Contains(message.Text, "#standup")
 }
 

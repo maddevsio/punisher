@@ -1,0 +1,28 @@
+version: '2'
+
+networks:
+  punisher:
+    external: true
+
+services:
+  punisher-db:
+    image: percona:5.7
+    restart: always
+    volumes:
+      - ./configs/mysql/dump:/docker-entrypoint-initdb.d
+      - ./volumes/mysql:/var/lib/mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+    networks:
+      - punisher
+
+  punisher:
+    image: hub.maddevs.co/punisher
+    restart: always
+    environment:
+      - TELEGRAM_TOKEN=582279956:AAHo6KJeROUTrcKoLefaKIQsXpTNSwWz9IU
+      - DATABASE_URL=root:root@tcp(punisher-db:3306)/interns?parseTime=true
+      - PUNISH_TIME=17:00
+      - INTERNS_CHAT_ID=1001211952354
+    networks:
+      - punisher
