@@ -52,16 +52,17 @@ func TestIsStandup(t *testing.T) {
 	b := setupTestBot(t)
 
 	var testCases = []struct {
-		message tgbotapi.Message
+		message string
 		result  bool
 	}{
-		{tgbotapi.Message{Text: "Я написал стэндап!"}, false},
-		{tgbotapi.Message{Text: "#standup Я написал стэндап!"}, true},
-		{tgbotapi.Message{Text: "#standup"}, true},
+		{"Я написал стэндап!", false},
+		{"#standup Я написал стэндап!", false},
+		{"#standup", false},
+		{"Вчера работал над проектом XYZ, закрыл тикеты 456, 89, 289. Сегодня буду работать над тикетом 203. Проблемы: проект не запускается в докере!", true},
 	}
 
 	for _, tt := range testCases {
-		isStandup := b.isStandup(&tt.message)
+		isStandup := b.isStandup(&tgbotapi.Message{Text: tt.message})
 		assert.Equal(t, tt.result, isStandup)
 	}
 }

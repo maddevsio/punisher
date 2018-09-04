@@ -150,7 +150,32 @@ func (b *Bot) checkStandups() (string, error) {
 
 func (b *Bot) isStandup(message *tgbotapi.Message) bool {
 	log.Println("checking accepted message")
-	return strings.Contains(message.Text, "#standup")
+	mentionsProblem := false
+	problemKeys := []string{"роблем", "рудност", "атрдуднен"}
+	for _, problem := range problemKeys {
+		if strings.Contains(message.Text, problem) {
+			mentionsProblem = true
+		}
+	}
+
+	mentionsYesterdayWork := false
+	yesterdayWorkKeys := []string{"чера", "ятницу", "делал", "делано"}
+	for _, work := range yesterdayWorkKeys {
+		if strings.Contains(message.Text, work) {
+			mentionsYesterdayWork = true
+		}
+	}
+	mentionsTodayPlans := false
+	todayPlansKeys := []string{"егодн", "обираюс", "ланир"}
+	for _, plan := range todayPlansKeys {
+		if strings.Contains(message.Text, plan) {
+			mentionsTodayPlans = true
+		}
+	}
+	if mentionsProblem && mentionsYesterdayWork && mentionsTodayPlans {
+		return true
+	}
+	return false
 }
 
 func (b *Bot) LastLives(live model.Live) (string, error) {
