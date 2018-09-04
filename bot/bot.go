@@ -23,8 +23,6 @@ const (
 	maxPushUps                = 500
 )
 
-var lastID int
-
 // Bot ...
 type Bot struct {
 	c       *config.BotConfig
@@ -35,35 +33,23 @@ type Bot struct {
 
 // NewTGBot creates a new bot
 func NewTGBot(c *config.BotConfig) (*Bot, error) {
-	newBot, err := tgbotapi.NewBotAPI(c.TelegramToken)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not create bot")
-	}
+	newBot, _ := tgbotapi.NewBotAPI(c.TelegramToken)
 	b := &Bot{
 		c:     c,
 		tgAPI: newBot,
 	}
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = telegramAPIUpdateInterval
-	updates, err := b.tgAPI.GetUpdatesChan(u)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not create updates chan")
-	}
+	updates, _ := b.tgAPI.GetUpdatesChan(u)
 	conn, err := storage.NewMySQL(c)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not create database connection")
+		return nil, err
 	}
 	b.updates = updates
 	b.db = conn
 	gocron.Every(1).Day().At(c.PunishTime).Do(b.dailyJob)
 
 	return b, nil
-}
-
-func (b *Bot) sendMsg(update tgbotapi.Update, msg string) {
-	text := tgbotapi.NewMessage(update.Message.Chat.ID, msg)
-	sm, _ := b.tgAPI.Send(text)
-	lastID = sm.MessageID
 }
 
 // Start ...
@@ -73,32 +59,38 @@ func (b *Bot) Start() {
 	}()
 	log.Println("Starting tg bot")
 	for update := range b.updates {
-		if update.Message == nil {
-			continue
-		}
-		text := update.Message.Text
-		if text == "" || text == "/start" {
-			continue
-		}
-		if b.isStandup(update.Message) {
-			fmt.Printf("accepted standup from %s\n", update.Message.From.UserName)
-			if _, err := b.db.CreateStandup(model.Standup{
-				Comment:  update.Message.Text,
-				Username: update.Message.From.UserName,
-			}); err != nil {
-				log.Println(err)
-				continue
-			}
-			b.tgAPI.Send(tgbotapi.NewMessage(-b.c.InternsChatID, fmt.Sprintf("@%s спасибо. Я принял твой стендап", update.Message.From.UserName)))
+		b.handleUpdate(update)
+	}
+}
 
-			b.tgAPI.Send(tgbotapi.ForwardConfig{
-				FromChannelUsername: update.Message.From.UserName,
-				FromChatID:          -b.c.InternsChatID,
-				MessageID:           update.Message.MessageID,
-				BaseChat:            tgbotapi.BaseChat{ChatID: -319163668},
-			})
-
+func (b *Bot) handleUpdate(update tgbotapi.Update) {
+	if update.Message == nil {
+		return
+	}
+	text := update.Message.Text
+	if text == "" || text == "/start" {
+		return
+	}
+	if b.isStandup(update.Message) {
+		fmt.Printf("accepted standup from %s\n", update.Message.From.UserName)
+		standup := model.Standup{
+			Comment:  update.Message.Text,
+			Username: update.Message.From.UserName,
 		}
+		_, err := b.db.CreateStandup(standup)
+		if err != nil {
+			log.Println(err)
+			return
+		}
+		b.tgAPI.Send(tgbotapi.NewMessage(-b.c.InternsChatID, fmt.Sprintf("@%s спасибо. Я принял твой стендап", update.Message.From.UserName)))
+
+		b.tgAPI.Send(tgbotapi.ForwardConfig{
+			FromChannelUsername: update.Message.From.UserName,
+			FromChatID:          -b.c.InternsChatID,
+			MessageID:           update.Message.MessageID,
+			BaseChat:            tgbotapi.BaseChat{ChatID: -12345},
+		})
+
 	}
 }
 
@@ -123,10 +115,7 @@ func (b *Bot) checkStandups() (string, error) {
 				continue
 			}
 		}
-		t, err := time.LoadLocation("Asia/Bishkek")
-		if err != nil {
-			log.Println(err)
-		}
+		t, _ := time.LoadLocation("Asia/Bishkek")
 		if time.Now().Day() != standup.Created.In(t).Day() {
 			b.Punish(intern)
 		}
@@ -168,7 +157,7 @@ func (b *Bot) RemoveLives(intern model.Intern) (string, error) {
 	intern.Lives--
 	_, err := b.db.UpdateIntern(intern)
 	if err != nil {
-		log.Println(err)
+		return "", err
 	}
 	message := tgbotapi.NewMessage(-b.c.InternsChatID, fmt.Sprintf("@%s осталось жизней: %d", intern.Username, intern.Lives))
 	b.tgAPI.Send(message)
