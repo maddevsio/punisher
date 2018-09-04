@@ -23,7 +23,7 @@ const (
 	maxPushUps                = 500
 )
 
-var lastId int
+var lastID int
 
 // Bot ...
 type Bot struct {
@@ -63,7 +63,7 @@ func NewTGBot(c *config.BotConfig) (*Bot, error) {
 func (b *Bot) sendMsg(update tgbotapi.Update, msg string) {
 	text := tgbotapi.NewMessage(update.Message.Chat.ID, msg)
 	sm, _ := b.tgAPI.Send(text)
-	lastId = sm.MessageID
+	lastID = sm.MessageID
 }
 
 // Start ...
@@ -189,6 +189,12 @@ func (b *Bot) PunishByPushUps(intern model.Intern, min, max int) (int, string, e
 
 //Punish punishes interns by either removing lives or asking them to do push ups
 func (b *Bot) Punish(intern model.Intern) {
-	b.RemoveLives(intern)
-	b.PunishByPushUps(intern, minPushUps, maxPushUps)
+	switch punishment := b.c.PunishmentType; punishment {
+	case "pushups":
+		b.PunishByPushUps(intern, minPushUps, maxPushUps)
+	case "removelives":
+		b.RemoveLives(intern)
+	default:
+		b.PunishByPushUps(intern, minPushUps, maxPushUps)
+	}
 }
