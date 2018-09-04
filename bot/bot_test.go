@@ -32,18 +32,18 @@ func TestCheckStandups(t *testing.T) {
 
 	d = time.Date(2018, time.April, 2, 11, 2, 3, 4, time.UTC)
 	monkey.Patch(time.Now, func() time.Time { return d })
-	live, err := b.db.CreateLive(model.Live{
+	intern, err := b.db.CreateIntern(model.Intern{
 		Username: "testUser1",
 		Lives:    3,
 	})
 	assert.NoError(t, err)
-	assert.Equal(t, "testUser1", live.Username)
+	assert.Equal(t, "testUser1", intern.Username)
 
 	message, err := b.checkStandups()
 	assert.NoError(t, err)
 	assert.Equal(t, "Каратель завершил свою работу ;)", message)
 
-	err = b.db.DeleteLive(live.ID)
+	err = b.db.DeleteIntern(intern.ID)
 	assert.NoError(t, err)
 
 }
@@ -67,28 +67,31 @@ func TestIsStandup(t *testing.T) {
 	}
 }
 
-func TestLastLives(t *testing.T) {
+func TestRemoveLives(t *testing.T) {
 	b := setupTestBot(t)
-	live, err := b.db.CreateLive(model.Live{
+	intern, err := b.db.CreateIntern(model.Intern{
 		Username: "testUser1",
 		Lives:    3,
 	})
-	text, err := b.LastLives(live)
+	text, err := b.RemoveLives(intern)
 	assert.NoError(t, err)
-	assert.Equal(t, "@testUser1 осталось жизней: 3", text)
+	assert.Equal(t, "@testUser1 осталось жизней: 2", text)
+	err = b.db.DeleteIntern(intern.ID)
+	assert.NoError(t, err)
 }
 
 func TestPunishByPushUps(t *testing.T) {
 	b := setupTestBot(t)
-	live, err := b.db.CreateLive(model.Live{
+	intern, err := b.db.CreateIntern(model.Intern{
 		Username: "testUser1",
 		Lives:    3,
 	})
-	pushUps, text, err := b.PunishByPushUps(live, 0, 10)
+	pushUps, text, err := b.PunishByPushUps(intern, 0, 10)
 	assert.NoError(t, err)
-	expected := fmt.Sprintf("@%s в наказание за пропущенный стэндап тебе %d отжиманий", live.Username, pushUps)
+	expected := fmt.Sprintf("@%s в наказание за пропущенный стэндап тебе %d отжиманий", intern.Username, pushUps)
 	assert.Equal(t, expected, text)
-
+	err = b.db.DeleteIntern(intern.ID)
+	assert.NoError(t, err)
 }
 
 func setupTestBot(t *testing.T) *Bot {

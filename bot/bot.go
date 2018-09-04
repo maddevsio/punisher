@@ -119,13 +119,7 @@ func (b *Bot) checkStandups() (string, error) {
 		standup, err := b.db.LastStandupFor(intern.Username)
 		if err != nil {
 			if err == sql.ErrNoRows {
-				intern.Lives--
-				_, err := b.db.UpdateIntern(intern)
-				if err != nil {
-					log.Println(err)
-				}
-				b.LastLives(intern)
-				b.PunishByPushUps(intern, minPushUps, maxPushUps)
+				b.Punish(intern)
 				continue
 			}
 		}
@@ -134,13 +128,7 @@ func (b *Bot) checkStandups() (string, error) {
 			log.Println(err)
 		}
 		if time.Now().Day() != standup.Created.In(t).Day() {
-			intern.Lives--
-			_, err := b.db.UpdateIntern(intern)
-			if err != nil {
-				log.Println(err)
-			}
-			b.LastLives(intern)
-			b.PunishByPushUps(intern, minPushUps, maxPushUps)
+			b.Punish(intern)
 		}
 	}
 	message := tgbotapi.NewMessage(-b.c.InternsChatID, "Каратель завершил свою работу ;)")
@@ -178,16 +166,29 @@ func (b *Bot) isStandup(message *tgbotapi.Message) bool {
 	return false
 }
 
-func (b *Bot) LastLives(intern model.Intern) (string, error) {
+//RemoveLives removes live from intern
+func (b *Bot) RemoveLives(intern model.Intern) (string, error) {
+	intern.Lives--
+	_, err := b.db.UpdateIntern(intern)
+	if err != nil {
+		log.Println(err)
+	}
 	message := tgbotapi.NewMessage(-b.c.InternsChatID, fmt.Sprintf("@%s осталось жизней: %d", intern.Username, intern.Lives))
 	b.tgAPI.Send(message)
 	return message.Text, nil
 }
 
+//PunishByPushUps tells interns to do random # of pushups
 func (b *Bot) PunishByPushUps(intern model.Intern, min, max int) (int, string, error) {
 	rand.Seed(time.Now().Unix())
 	pushUps := rand.Intn(max-min) + min
 	message := tgbotapi.NewMessage(-b.c.InternsChatID, fmt.Sprintf("@%s в наказание за пропущенный стэндап тебе %d отжиманий", intern.Username, pushUps))
 	b.tgAPI.Send(message)
 	return pushUps, message.Text, nil
+}
+
+//Punish punishes interns by either removing lives or asking them to do push ups
+func (b *Bot) Punish(intern model.Intern) {
+	b.RemoveLives(intern)
+	b.PunishByPushUps(intern, minPushUps, maxPushUps)
 }

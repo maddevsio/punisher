@@ -131,7 +131,7 @@ func (m *MySQL) SelectIntern(id int64) (model.Intern, error) {
 
 // DeleteLive deletes standup entry from database
 func (m *MySQL) DeleteIntern(id int64) error {
-	_, err := m.conn.Exec("DELETE FROM `lives` WHERE id=?", id)
+	_, err := m.conn.Exec("DELETE FROM `interns` WHERE id=?", id)
 	return err
 }
 
