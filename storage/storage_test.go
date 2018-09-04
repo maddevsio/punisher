@@ -2,6 +2,7 @@ package storage
 
 import (
 	"database/sql"
+	"os"
 	"testing"
 
 	"github.com/maddevsio/punisher/config"
@@ -9,7 +10,15 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+const BotToken = "testToken"
+const BotChat = "-12345"
+const BotDatabaseURL = "root:root@/interns?parseTime=true"
+
 func TestCRUDLStandup(t *testing.T) {
+	os.Setenv("BOT_TELEGRAM_TOKEN", BotToken)
+	os.Setenv("BOT_INTERNS_CHAT_ID", BotChat)
+	os.Setenv("BOT_DATABASE_URL", BotDatabaseURL)
+
 	c, err := config.GetConfig()
 	assert.NoError(t, err)
 	m, err := NewMySQL(c)
@@ -20,14 +29,13 @@ func TestCRUDLStandup(t *testing.T) {
 	})
 	assert.NoError(t, err)
 	assert.Equal(t, s.Comment, "work hard")
-
 	s.Comment = "Rest"
 	s, err = m.UpdateStandup(s)
 	assert.NoError(t, err)
-	assert.Equal(t, s.Comment, "Rest")
+	assert.Equal(t, "Rest", s.Comment)
 	items, err := m.ListStandups()
 	assert.NoError(t, err)
-	assert.Equal(t, items[0], s)
+	assert.Equal(t, 1, len(items))
 	selected, err := m.SelectStandup(s.ID)
 	assert.NoError(t, err)
 	assert.Equal(t, s, selected)

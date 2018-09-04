@@ -17,7 +17,7 @@ import (
 
 const BotToken = "testToken"
 const BotChat = "-12345"
-const BotDatabaseURL = "root:root@/interns"
+const BotDatabaseURL = "root:root@/interns?parseTime=true"
 
 func TestCheckStandups(t *testing.T) {
 	b := setupTestBot(t)
