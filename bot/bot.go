@@ -101,18 +101,19 @@ func (b *Bot) Start() {
 		}
 	}
 }
+
 func (b *Bot) dailyJob() {
-	if err := b.checkStandups(); err != nil {
+	if _, err := b.checkStandups(); err != nil {
 		log.Println(err)
 	}
 }
-func (b *Bot) checkStandups() error {
+func (b *Bot) checkStandups() (string, error) {
 	if time.Now().Weekday().String() == "Saturday" || time.Now().Weekday().String() == "Sunday" {
-		return errors.New("day off")
+		return "", errors.New("day off")
 	}
 	lives, err := b.db.ListLives()
 	if err != nil {
-		return err
+		return "", err
 	}
 	for _, live := range lives {
 		standup, err := b.db.LastStandupFor(live.Username)
@@ -142,8 +143,9 @@ func (b *Bot) checkStandups() error {
 			b.PunishByPushUps(live, minPushUps, maxPushUps)
 		}
 	}
-	b.tgAPI.Send(tgbotapi.NewMessage(-b.c.InternsChatID, "Каратель завершил свою работу ;)"))
-	return nil
+	message := tgbotapi.NewMessage(-b.c.InternsChatID, "Каратель завершил свою работу ;)")
+	b.tgAPI.Send(message)
+	return message.Text, nil
 }
 
 func (b *Bot) isStandup(message *tgbotapi.Message) bool {
@@ -151,12 +153,16 @@ func (b *Bot) isStandup(message *tgbotapi.Message) bool {
 	return strings.Contains(message.Text, "#standup")
 }
 
-func (b *Bot) LastLives(live model.Live) {
-	b.tgAPI.Send(tgbotapi.NewMessage(-b.c.InternsChatID, fmt.Sprintf("@%s осталось жизней: %d", live.Username, live.Lives)))
+func (b *Bot) LastLives(live model.Live) (string, error) {
+	message := tgbotapi.NewMessage(-b.c.InternsChatID, fmt.Sprintf("@%s осталось жизней: %d", live.Username, live.Lives))
+	b.tgAPI.Send(message)
+	return message.Text, nil
 }
 
-func (b *Bot) PunishByPushUps(live model.Live, min, max int) {
+func (b *Bot) PunishByPushUps(live model.Live, min, max int) (int, string, error) {
 	rand.Seed(time.Now().Unix())
 	pushUps := rand.Intn(max-min) + min
-	b.tgAPI.Send(tgbotapi.NewMessage(-b.c.InternsChatID, fmt.Sprintf("@%s в наказание за проёбаны стэндап тебе %d отжиманий", live.Username, pushUps)))
+	message := tgbotapi.NewMessage(-b.c.InternsChatID, fmt.Sprintf("@%s в наказание за пропущенный стэндап тебе %d отжиманий", live.Username, pushUps))
+	b.tgAPI.Send(message)
+	return pushUps, message.Text, nil
 }
