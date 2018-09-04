@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"math/rand"
 	"strings"
 	"time"
 
@@ -18,6 +19,8 @@ import (
 const (
 	telegramAPIUpdateInterval = 60
 	maxResults                = 20
+	minPushUps                = 100
+	maxPushUps                = 500
 )
 
 var lastId int
@@ -121,6 +124,7 @@ func (b *Bot) checkStandups() error {
 					log.Println(err)
 				}
 				b.LastLives(live)
+				b.PunishByPushUps(minPushUps, maxPushUps)
 				continue
 			}
 		}
@@ -135,6 +139,7 @@ func (b *Bot) checkStandups() error {
 				log.Println(err)
 			}
 			b.LastLives(live)
+			b.PunishByPushUps(minPushUps, maxPushUps)
 		}
 	}
 	b.tgAPI.Send(tgbotapi.NewMessage(-b.c.InternsChatID, "Каратель завершил свою работу ;)"))
@@ -148,4 +153,10 @@ func (b *Bot) isStandup(message *tgbotapi.Message) bool {
 
 func (b *Bot) LastLives(live model.Live) {
 	b.tgAPI.Send(tgbotapi.NewMessage(-b.c.InternsChatID, fmt.Sprintf("@%s осталось жизней: %d", live.Username, live.Lives)))
+}
+
+func (b *Bot) PunishByPushUps(min, max int) {
+	rand.Seed(time.Now().Unix())
+	pushUps := rand.Intn(max-min) + min
+	b.tgAPI.Send(tgbotapi.NewMessage(-b.c.InternsChatID, fmt.Sprintf("@%s в наказание за проёбаны стэндап тебе %d отжиманий", live.Username, pushUps)))
 }
