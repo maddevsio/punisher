@@ -17,6 +17,9 @@ fmt:
 migrate:
 	goose -dir migrations mysql "root:root@tcp(localhost:3306)/interns"  up
 
+migrate_localhost:
+	goose -dir migrations mysql "root:root@/interns"  up
+
 build_linux:
 	GOOS=linux GOARCH=amd64 go build -o $(TARGET) main.go
 

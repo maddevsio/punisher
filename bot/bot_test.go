@@ -57,6 +57,7 @@ func TestIsStandup(t *testing.T) {
 	}{
 		{tgbotapi.Message{Text: "Я написал стэндап!"}, false},
 		{tgbotapi.Message{Text: "#standup Я написал стэндап!"}, true},
+		{tgbotapi.Message{Text: "#standup"}, true},
 	}
 
 	for _, tt := range testCases {
