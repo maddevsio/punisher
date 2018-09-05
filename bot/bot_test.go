@@ -144,6 +144,51 @@ func TestPunishByPushUps(t *testing.T) {
 	assert.NoError(t, b.db.DeleteIntern(intern.ID))
 }
 
+func TestPunishBySitUps(t *testing.T) {
+	b := setupTestBot(t)
+	intern, err := b.db.CreateIntern(model.Intern{
+		Username: "testUser1",
+		Lives:    3,
+	})
+	pushUps, text, err := b.PunishBySitUps(intern, 0, 10)
+	assert.NoError(t, err)
+	expected := fmt.Sprintf("@%s в наказание за пропущенный стэндап тебе %d приседаний", intern.Username, pushUps)
+	assert.Equal(t, expected, text)
+	assert.NoError(t, b.db.DeleteIntern(intern.ID))
+}
+
+func TestPunishByPoetry(t *testing.T) {
+	b := setupTestBot(t)
+	intern, err := b.db.CreateIntern(model.Intern{
+		Username: "testUser1",
+		Lives:    3,
+	})
+	l := generatePoetryLink()
+	link, text, err := b.PunishByPoetry(intern, l)
+	assert.NoError(t, err)
+	fmt.Println(link)
+	expected := fmt.Sprintf("@%s в наказание за пропущенный стэндап прочитай этот стих: %v", intern.Username, link)
+	assert.Equal(t, expected, text)
+	assert.NoError(t, b.db.DeleteIntern(intern.ID))
+}
+
+func TestPoetryExist(t *testing.T) {
+	var testCases = []struct {
+		poetrylink string
+		result     bool
+	}{
+		{"https://www.stihi.ru/2011/09/06/21900", false},
+		{"https://www.stihi.ru/2011/09/06/219", true},
+		{"https://www.stihi.ru/201", false},
+		{"", false},
+	}
+
+	for _, tt := range testCases {
+		ifExist := poetryExist(tt.poetrylink)
+		assert.Equal(t, tt.result, ifExist)
+	}
+}
+
 func TestPunishFunc(t *testing.T) {
 	b := setupTestBot(t)
 	i, err := b.db.CreateIntern(model.Intern{
