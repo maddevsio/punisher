@@ -84,12 +84,14 @@ func (b *Bot) handleUpdate(update tgbotapi.Update) {
 		}
 		b.tgAPI.Send(tgbotapi.NewMessage(-b.c.InternsChatID, fmt.Sprintf("@%s спасибо. Я принял твой стендап", update.Message.From.UserName)))
 
-		b.tgAPI.Send(tgbotapi.ForwardConfig{
-			FromChannelUsername: update.Message.From.UserName,
-			FromChatID:          -b.c.InternsChatID,
-			MessageID:           update.Message.MessageID,
-			BaseChat:            tgbotapi.BaseChat{ChatID: -12345},
-		})
+		if b.c.NotifyMentors {
+			b.tgAPI.Send(tgbotapi.ForwardConfig{
+				FromChannelUsername: update.Message.From.UserName,
+				FromChatID:          -b.c.InternsChatID,
+				MessageID:           update.Message.MessageID,
+				BaseChat:            tgbotapi.BaseChat{ChatID: b.c.MentorsChat},
+			})
+		}
 
 	}
 }

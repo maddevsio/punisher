@@ -9,6 +9,8 @@ type BotConfig struct {
 	PunishTime     string `envconfig:"PUNISH_TIME" default:"10:00"`
 	InternsChatID  int64  `envconfig:"INTERNS_CHAT_ID" required:"true"`
 	PunishmentType string `envconfig:"PUNISHMENT_TYPE" default:"pushups"` //also can be "removelives"
+	NotifyMentors  bool   `envconfig:"NOTIFY_MENTORS" default:"false"`
+	MentorsChat    int64  `envconfig:"MENTORS_CHAT"`
 }
 
 // GetConfig ...
