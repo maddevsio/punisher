@@ -19,10 +19,7 @@ type MySQL struct {
 
 // NewMySQL creates a new instance of database API
 func NewMySQL(c *config.BotConfig) (*MySQL, error) {
-	conn, err := sqlx.Open("mysql", c.DatabaseURL)
-	if err != nil {
-		return nil, err
-	}
+	conn, _ := sqlx.Open("mysql", c.DatabaseURL)
 	m := &MySQL{}
 	m.conn = conn
 	return m, nil
@@ -37,25 +34,19 @@ func (m *MySQL) CreateStandup(s model.Standup) (model.Standup, error) {
 	if err != nil {
 		return s, err
 	}
-	id, err := res.LastInsertId()
-	if err != nil {
-		return s, err
-	}
+	id, _ := res.LastInsertId()
 	s.ID = id
 	return s, nil
 }
 
 // UpdateStandup updates standup entry in database
 func (m *MySQL) UpdateStandup(s model.Standup) (model.Standup, error) {
-	_, err := m.conn.Exec(
+	var i model.Standup
+	m.conn.Exec(
 		"UPDATE `standup` SET modified=?, username=?, comment=? WHERE id=?",
 		time.Now().UTC(), s.Username, s.Comment, s.ID,
 	)
-	if err != nil {
-		return s, err
-	}
-	var i model.Standup
-	err = m.conn.Get(&i, "SELECT * FROM `standup` WHERE id=?", s.ID)
+	err := m.conn.Get(&i, "SELECT * FROM `standup` WHERE id=?", s.ID)
 	return i, err
 }
 
@@ -63,13 +54,6 @@ func (m *MySQL) UpdateStandup(s model.Standup) (model.Standup, error) {
 func (m *MySQL) SelectStandup(id int64) (model.Standup, error) {
 	var s model.Standup
 	err := m.conn.Get(&s, "SELECT * FROM `standup` WHERE id=?", id)
-	return s, err
-}
-
-// SelectStandupByMessageTS selects standup entry from database
-func (m *MySQL) SelectStandupByMessageTS(messageTS string) (model.Standup, error) {
-	var s model.Standup
-	err := m.conn.Get(&s, "SELECT * FROM `standup` WHERE message_ts=?", messageTS)
 	return s, err
 }
 
@@ -85,57 +69,50 @@ func (m *MySQL) ListStandups() ([]model.Standup, error) {
 	err := m.conn.Select(&items, "SELECT * FROM `standup`")
 	return items, err
 }
+
+//LastStandupFor returns last standup for intern
 func (m *MySQL) LastStandupFor(username string) (model.Standup, error) {
 	var standup model.Standup
 	err := m.conn.Get(&standup, "SELECT * FROM `standup` WHERE username=? ORDER BY id DESC LIMIT 1", username)
 	return standup, err
 }
 
-// CreateLive creates live for user
+// CreateIntern creates intern
 func (m *MySQL) CreateIntern(s model.Intern) (model.Intern, error) {
-	res, err := m.conn.Exec(
+	res, _ := m.conn.Exec(
 		"INSERT INTO `interns` (username, lives) VALUES (?, ?)",
 		s.Username, s.Lives,
 	)
-	if err != nil {
-		return s, err
-	}
-	id, err := res.LastInsertId()
-	if err != nil {
-		return s, err
-	}
+	id, _ := res.LastInsertId()
 	s.ID = id
 	return s, nil
 }
 
-// UpdateLive updates standup entry in database
+// UpdateIntern updates intern entry in database
 func (m *MySQL) UpdateIntern(s model.Intern) (model.Intern, error) {
-	_, err := m.conn.Exec(
+	var i model.Intern
+	m.conn.Exec(
 		"UPDATE `interns` SET username=?, lives=? WHERE id=?",
 		s.Username, s.Lives, s.ID,
 	)
-	if err != nil {
-		return s, err
-	}
-	var i model.Intern
-	err = m.conn.Get(&i, "SELECT * FROM `interns` WHERE id=?", s.ID)
+	err := m.conn.Get(&i, "SELECT * FROM `interns` WHERE id=?", s.ID)
 	return i, err
 }
 
-// SelectLive selects standup entry from database
+// SelectIntern selects intern entry from database
 func (m *MySQL) SelectIntern(id int64) (model.Intern, error) {
 	var s model.Intern
 	err := m.conn.Get(&s, "SELECT * FROM `interns` WHERE id=?", id)
 	return s, err
 }
 
-// DeleteLive deletes standup entry from database
+// DeleteIntern deletes intern entry from database
 func (m *MySQL) DeleteIntern(id int64) error {
 	_, err := m.conn.Exec("DELETE FROM `interns` WHERE id=?", id)
 	return err
 }
 
-// ListLives returns array of standup entries from database
+// ListInterns returns array of intern entries from database
 func (m *MySQL) ListInterns() ([]model.Intern, error) {
 	items := []model.Intern{}
 	err := m.conn.Select(&items, "SELECT * FROM `interns`")

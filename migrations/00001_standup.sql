@@ -5,7 +5,7 @@ CREATE TABLE `standup` (
     `created` DATETIME NOT NULL,
     `modified` DATETIME NOT NULL,
     `username` VARCHAR(255) NOT NULL,
-    `comment` VARCHAR(255) NOT NULL,
+    `comment` VARCHAR(255) COLLATE utf8mb4_unicode_ci NOT NULL,
     KEY (`created`, `username`)
 );
 -- +goose Down

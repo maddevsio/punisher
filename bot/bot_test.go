@@ -17,10 +17,11 @@ import (
 
 const BotToken = "testToken"
 const BotChat = "-12345"
-const BotDatabaseURL = "root:root@/interns"
+const BotDatabaseURL = "root:root@/interns?parseTime=true"
 
 func TestCheckStandups(t *testing.T) {
 	b := setupTestBot(t)
+	b.dailyJob()
 	d := time.Date(2018, time.April, 1, 1, 2, 3, 4, time.UTC)
 	monkey.Patch(time.Now, func() time.Time { return d })
 	_, err := b.checkStandups()
@@ -43,8 +44,19 @@ func TestCheckStandups(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "Каратель завершил свою работу ;)", message)
 
-	err = b.db.DeleteIntern(intern.ID)
+	s, err := b.db.CreateStandup(model.Standup{
+		Username: "testUser1",
+		Comment:  "first standup",
+	})
 	assert.NoError(t, err)
+	b.dailyJob()
+
+	d = time.Date(2018, time.April, 4, 11, 2, 3, 4, time.UTC)
+	monkey.Patch(time.Now, func() time.Time { return d })
+	b.dailyJob()
+
+	assert.NoError(t, b.db.DeleteIntern(intern.ID))
+	assert.NoError(t, b.db.DeleteStandup(s.ID))
 
 }
 
@@ -64,6 +76,45 @@ func TestIsStandup(t *testing.T) {
 	for _, tt := range testCases {
 		isStandup := b.isStandup(&tgbotapi.Message{Text: tt.message})
 		assert.Equal(t, tt.result, isStandup)
+	}
+}
+
+func TestHandleUpdate(t *testing.T) {
+	b := setupTestBot(t)
+	b.handleUpdate(tgbotapi.Update{
+		Message: &tgbotapi.Message{},
+	})
+
+	b.handleUpdate(tgbotapi.Update{
+		Message: &tgbotapi.Message{Text: ""},
+	})
+
+	b.handleUpdate(tgbotapi.Update{
+		Message: &tgbotapi.Message{Text: "/start"},
+	})
+
+	b.handleUpdate(tgbotapi.Update{
+		Message: &tgbotapi.Message{
+			From: &tgbotapi.User{
+				UserName: "testUser",
+			},
+			Text: "Вчера работал. Проблемы: проект не запускается в докере!",
+		},
+	})
+
+	b.handleUpdate(tgbotapi.Update{
+		Message: &tgbotapi.Message{
+			From: &tgbotapi.User{
+				UserName: "testUser",
+			},
+			Text: "Вчера работал. Сегодня буду работать. Проблемы: проект не запускается в докере!",
+		},
+	})
+
+	standups, err := b.db.ListStandups()
+	assert.NoError(t, err)
+	for _, standup := range standups {
+		assert.NoError(t, b.db.DeleteStandup(standup.ID))
 	}
 }
 
@@ -90,8 +141,29 @@ func TestPunishByPushUps(t *testing.T) {
 	assert.NoError(t, err)
 	expected := fmt.Sprintf("@%s в наказание за пропущенный стэндап тебе %d отжиманий", intern.Username, pushUps)
 	assert.Equal(t, expected, text)
-	err = b.db.DeleteIntern(intern.ID)
+	assert.NoError(t, b.db.DeleteIntern(intern.ID))
+}
+
+func TestPunishFunc(t *testing.T) {
+	b := setupTestBot(t)
+	i, err := b.db.CreateIntern(model.Intern{
+		Username: "user",
+		Lives:    3,
+	})
 	assert.NoError(t, err)
+	b.Punish(i)
+	b.c.PunishmentType = "removelives"
+	i2, err := b.db.CreateIntern(model.Intern{
+		Username: "user1",
+		Lives:    3,
+	})
+	assert.NoError(t, err)
+	b.Punish(i2)
+	b.c.PunishmentType = "random"
+	b.Punish(i2)
+	assert.NoError(t, b.db.DeleteIntern(i.ID))
+	assert.NoError(t, b.db.DeleteIntern(i2.ID))
+
 }
 
 func setupTestBot(t *testing.T) *Bot {
