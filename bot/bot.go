@@ -102,6 +102,24 @@ func (b *Bot) handleUpdate(update tgbotapi.Update) {
 		}
 
 	}
+
+	if update.EditedMessage != nil {
+		if !b.isStandup(update.EditedMessage) {
+			fmt.Printf("This is not a proper edit for standup: %s\n", update.EditedMessage.Text)
+			return
+		}
+		fmt.Printf("accepted edited standup from %s\n", update.EditedMessage.From.UserName)
+		standup := model.Standup{
+			Comment:  update.EditedMessage.Text,
+			Username: update.EditedMessage.From.UserName,
+		}
+		_, err := b.db.UpdateStandup(standup)
+		if err != nil {
+			log.Println(err)
+			return
+		}
+		b.tgAPI.Send(tgbotapi.NewMessage(-b.c.InternsChatID, fmt.Sprintf("@%s спасибо. исправления приняты.", update.Message.From.UserName)))
+	}
 }
 
 func (b *Bot) dailyJob() {
