@@ -35,14 +35,20 @@ type Bot struct {
 
 // NewTGBot creates a new bot
 func NewTGBot(c *config.BotConfig) (*Bot, error) {
-	newBot, _ := tgbotapi.NewBotAPI(c.TelegramToken)
+	newBot, err := tgbotapi.NewBotAPI(c.TelegramToken)
+	if err != nil {
+		return nil, err
+	}
 	b := &Bot{
 		c:     c,
 		tgAPI: newBot,
 	}
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = telegramAPIUpdateInterval
-	updates, _ := b.tgAPI.GetUpdatesChan(u)
+	updates, err := b.tgAPI.GetUpdatesChan(u)
+	if err != nil {
+		return nil, err
+	}
 	conn, err := storage.NewMySQL(c)
 	if err != nil {
 		return nil, err
@@ -117,6 +123,8 @@ func (b *Bot) checkStandups() (string, error) {
 			if err == sql.ErrNoRows {
 				b.Punish(intern)
 				continue
+			} else {
+				return "", err
 			}
 		}
 		t, _ := time.LoadLocation("Asia/Bishkek")
