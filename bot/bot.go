@@ -201,6 +201,19 @@ func (b *Bot) RemoveLives(intern model.Intern) (string, error) {
 		return "", err
 	}
 	message := tgbotapi.NewMessage(-b.c.InternsChatID, fmt.Sprintf("@%s осталось жизней: %d", intern.Username, intern.Lives))
+	if intern.Lives == 0 {
+		chatMemberConf := tgbotapi.ChatMemberConfig{
+			ChatID: b.c.InternsChatID,
+			UserID: int(intern.ID),
+		}
+		conf := tgbotapi.KickChatMemberConfig{chatMemberConf, 0}
+		r, err := b.tgAPI.KickChatMember(conf)
+		if err != nil {
+			fmt.Println(err)
+		}
+		fmt.Println(r)
+		message = tgbotapi.NewMessage(-b.c.InternsChatID, fmt.Sprintf("У @%s не осталось жизней. Удаляю.", intern.Username))
+	}
 	b.tgAPI.Send(message)
 	return message.Text, nil
 }
