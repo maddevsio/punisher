@@ -79,6 +79,7 @@ func (b *Bot) handleUpdate(update tgbotapi.Update) {
 	if text == "" || text == "/start" {
 		return
 	}
+
 	if b.isStandup(update.Message) {
 		fmt.Printf("accepted standup from %s\n", update.Message.From.UserName)
 		standup := model.Standup{
@@ -136,6 +137,16 @@ func (b *Bot) checkStandups() (string, error) {
 		return "", err
 	}
 	for _, intern := range interns {
+		conf := tgbotapi.ChatConfigWithUser{
+			ChatID: b.c.InternsChatID,
+			UserID: int(intern.ID),
+		}
+		u, err := b.tgAPI.GetChatMember(conf)
+		if err != nil {
+			fmt.Println(err)
+			continue
+		}
+		fmt.Println(u)
 		standup, err := b.db.LastStandupFor(intern.Username)
 		if err != nil {
 			if err == sql.ErrNoRows {
