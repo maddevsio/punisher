@@ -106,6 +106,13 @@ func (m *MySQL) SelectIntern(id int64) (model.Intern, error) {
 	return s, err
 }
 
+// FindIntern selects intern entry from database
+func (m *MySQL) FindIntern(name string) (model.Intern, error) {
+	var s model.Intern
+	err := m.conn.Get(&s, "SELECT * FROM `interns` WHERE username=?", name)
+	return s, err
+}
+
 // DeleteIntern deletes intern entry from database
 func (m *MySQL) DeleteIntern(id int64) error {
 	_, err := m.conn.Exec("DELETE FROM `interns` WHERE id=?", id)

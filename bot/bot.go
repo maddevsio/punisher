@@ -80,6 +80,37 @@ func (b *Bot) handleUpdate(update tgbotapi.Update) {
 		return
 	}
 
+	isAdmin, err := b.senderIsAdminInChannel(update.Message.From.UserName)
+	if err != nil {
+		fmt.Println("WHO THE HELL IS THIS GUY?")
+	}
+	s := strings.Split(update.Message.Text, " ")
+	fmt.Println(s)
+	if s[0] == "@internshipcomedian_bot" && s[0] != "" && s[1] != "" && s[2] != "" && isAdmin {
+		switch c := s[1]; c {
+		case "добавь":
+			fmt.Printf("Добавляю стажёра: %s в БД", s[2])
+			intern := model.Intern{0, s[2], 3}
+			_, err := b.db.CreateIntern(intern)
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+		case "удали":
+			fmt.Printf("Удаляю стажёра: %s из БД", s[2])
+			intern, err := b.db.FindIntern(s[2])
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+			err = b.db.DeleteIntern(intern.ID)
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+		}
+	}
+
 	if b.isStandup(update.Message) {
 		fmt.Printf("accepted standup from %s\n", update.Message.From.UserName)
 		standup := model.Standup{
@@ -128,6 +159,23 @@ func (b *Bot) dailyJob() {
 		log.Println(err)
 	}
 }
+
+func (b *Bot) senderIsAdminInChannel(sendername string) (bool, error) {
+	isAdmin := false
+	chat := tgbotapi.ChatConfig{b.c.InternsChatID, ""}
+	admins, err := b.tgAPI.GetChatAdministrators(chat)
+	if err != nil {
+		return false, err
+	}
+	for _, admin := range admins {
+		if admin.User.UserName == sendername {
+			isAdmin = true
+			return true, nil
+		}
+	}
+	return isAdmin, nil
+}
+
 func (b *Bot) checkStandups() (string, error) {
 	if time.Now().Weekday().String() == "Saturday" || time.Now().Weekday().String() == "Sunday" {
 		return "", errors.New("day off")
