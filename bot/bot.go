@@ -96,6 +96,8 @@ func (b *Bot) handleUpdate(update tgbotapi.Update) {
 				fmt.Println(err)
 				return
 			}
+			b.tgAPI.Send(tgbotapi.NewMessage(-b.c.InternsChatID, fmt.Sprintf("%s, я слежу за тобой.", intern.Username)))
+
 		case "удали":
 			fmt.Printf("Удаляю стажёра: %s из БД", s[2])
 			intern, err := b.db.FindIntern(s[2])
@@ -108,6 +110,7 @@ func (b *Bot) handleUpdate(update tgbotapi.Update) {
 				fmt.Println(err)
 				return
 			}
+			b.tgAPI.Send(tgbotapi.NewMessage(-b.c.InternsChatID, fmt.Sprintf("%s, я больше не слежу за тобой.", intern.Username)))
 		}
 	}
 
