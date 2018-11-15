@@ -80,6 +80,41 @@ func (b *Bot) handleUpdate(update tgbotapi.Update) {
 		return
 	}
 
+	isAdmin, err := b.senderIsAdminInChannel(update.Message.From.UserName)
+	if err != nil {
+		fmt.Println("WHO THE HELL IS THIS GUY?")
+	}
+	s := strings.Split(update.Message.Text, " ")
+	fmt.Println(s)
+	fmt.Println(b.tgAPI.Self.UserName)
+	if s[0] == "@"+b.tgAPI.Self.UserName && (s[1] == "добавь" || s[1] == "удали") && s[2] != "" && isAdmin {
+		switch c := s[1]; c {
+		case "добавь":
+			fmt.Printf("Добавляю стажёра: %s в БД", s[2])
+			intern := model.Intern{0, s[2], 3}
+			_, err := b.db.CreateIntern(intern)
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+			b.tgAPI.Send(tgbotapi.NewMessage(b.c.InternsChatID, fmt.Sprintf("%s, я слежу за тобой.", intern.Username)))
+
+		case "удали":
+			fmt.Printf("Удаляю стажёра: %s из БД", s[2])
+			intern, err := b.db.FindIntern(s[2])
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+			err = b.db.DeleteIntern(intern.ID)
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+			b.tgAPI.Send(tgbotapi.NewMessage(b.c.InternsChatID, fmt.Sprintf("%s, я больше не слежу за тобой.", intern.Username)))
+		}
+	}
+
 	if b.isStandup(update.Message) {
 		fmt.Printf("accepted standup from %s\n", update.Message.From.UserName)
 		standup := model.Standup{
@@ -91,12 +126,12 @@ func (b *Bot) handleUpdate(update tgbotapi.Update) {
 			log.Println(err)
 			return
 		}
-		b.tgAPI.Send(tgbotapi.NewMessage(-b.c.InternsChatID, fmt.Sprintf("@%s спасибо. Я принял твой стендап", update.Message.From.UserName)))
+		b.tgAPI.Send(tgbotapi.NewMessage(b.c.InternsChatID, fmt.Sprintf("@%s спасибо. Я принял твой стендап", update.Message.From.UserName)))
 
 		if b.c.NotifyMentors {
 			b.tgAPI.Send(tgbotapi.ForwardConfig{
 				FromChannelUsername: update.Message.From.UserName,
-				FromChatID:          -b.c.InternsChatID,
+				FromChatID:          b.c.InternsChatID,
 				MessageID:           update.Message.MessageID,
 				BaseChat:            tgbotapi.BaseChat{ChatID: b.c.MentorsChat},
 			})
@@ -119,7 +154,7 @@ func (b *Bot) handleUpdate(update tgbotapi.Update) {
 			log.Println(err)
 			return
 		}
-		b.tgAPI.Send(tgbotapi.NewMessage(-b.c.InternsChatID, fmt.Sprintf("@%s спасибо. исправления приняты.", update.Message.From.UserName)))
+		b.tgAPI.Send(tgbotapi.NewMessage(b.c.InternsChatID, fmt.Sprintf("@%s спасибо. исправления приняты.", update.Message.From.UserName)))
 	}
 }
 
@@ -128,6 +163,23 @@ func (b *Bot) dailyJob() {
 		log.Println(err)
 	}
 }
+
+func (b *Bot) senderIsAdminInChannel(sendername string) (bool, error) {
+	isAdmin := false
+	chat := tgbotapi.ChatConfig{b.c.InternsChatID, ""}
+	admins, err := b.tgAPI.GetChatAdministrators(chat)
+	if err != nil {
+		return false, err
+	}
+	for _, admin := range admins {
+		if admin.User.UserName == sendername {
+			isAdmin = true
+			return true, nil
+		}
+	}
+	return isAdmin, nil
+}
+
 func (b *Bot) checkStandups() (string, error) {
 	if time.Now().Weekday().String() == "Saturday" || time.Now().Weekday().String() == "Sunday" {
 		return "", errors.New("day off")
@@ -137,16 +189,6 @@ func (b *Bot) checkStandups() (string, error) {
 		return "", err
 	}
 	for _, intern := range interns {
-		conf := tgbotapi.ChatConfigWithUser{
-			ChatID: b.c.InternsChatID,
-			UserID: int(intern.ID),
-		}
-		u, err := b.tgAPI.GetChatMember(conf)
-		if err != nil {
-			fmt.Println(err)
-			continue
-		}
-		fmt.Println(u)
 		standup, err := b.db.LastStandupFor(intern.Username)
 		if err != nil {
 			if err == sql.ErrNoRows {
@@ -161,7 +203,7 @@ func (b *Bot) checkStandups() (string, error) {
 			b.Punish(intern)
 		}
 	}
-	message := tgbotapi.NewMessage(-b.c.InternsChatID, "Каратель завершил свою работу ;)")
+	message := tgbotapi.NewMessage(b.c.InternsChatID, "Каратель завершил свою работу ;)")
 	b.tgAPI.Send(message)
 	return message.Text, nil
 }
@@ -200,7 +242,20 @@ func (b *Bot) RemoveLives(intern model.Intern) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	message := tgbotapi.NewMessage(-b.c.InternsChatID, fmt.Sprintf("@%s осталось жизней: %d", intern.Username, intern.Lives))
+	message := tgbotapi.NewMessage(b.c.InternsChatID, fmt.Sprintf("@%s осталось жизней: %d", intern.Username, intern.Lives))
+	if intern.Lives == 0 {
+		chatMemberConf := tgbotapi.ChatMemberConfig{
+			ChatID: b.c.InternsChatID,
+			UserID: int(intern.ID),
+		}
+		conf := tgbotapi.KickChatMemberConfig{chatMemberConf, 0}
+		r, err := b.tgAPI.KickChatMember(conf)
+		if err != nil {
+			fmt.Println(err)
+		}
+		fmt.Println(r)
+		message = tgbotapi.NewMessage(b.c.InternsChatID, fmt.Sprintf("У @%s не осталось жизней. Удаляю.", intern.Username))
+	}
 	b.tgAPI.Send(message)
 	return message.Text, nil
 }
@@ -209,7 +264,7 @@ func (b *Bot) RemoveLives(intern model.Intern) (string, error) {
 func (b *Bot) PunishByPushUps(intern model.Intern, min, max int) (int, string, error) {
 	rand.Seed(time.Now().Unix())
 	pushUps := rand.Intn(max-min) + min
-	message := tgbotapi.NewMessage(-b.c.InternsChatID, fmt.Sprintf("@%s в наказание за пропущенный стэндап тебе %d отжиманий", intern.Username, pushUps))
+	message := tgbotapi.NewMessage(b.c.InternsChatID, fmt.Sprintf("%s в наказание за пропущенный стэндап тебе %d отжиманий", intern.Username, pushUps))
 	b.tgAPI.Send(message)
 	return pushUps, message.Text, nil
 }
@@ -218,14 +273,14 @@ func (b *Bot) PunishByPushUps(intern model.Intern, min, max int) (int, string, e
 func (b *Bot) PunishBySitUps(intern model.Intern, min, max int) (int, string, error) {
 	rand.Seed(time.Now().Unix())
 	situps := rand.Intn(max-min) + min
-	message := tgbotapi.NewMessage(-b.c.InternsChatID, fmt.Sprintf("@%s в наказание за пропущенный стэндап тебе %d приседаний", intern.Username, situps))
+	message := tgbotapi.NewMessage(b.c.InternsChatID, fmt.Sprintf("%s в наказание за пропущенный стэндап тебе %d приседаний", intern.Username, situps))
 	b.tgAPI.Send(message)
 	return situps, message.Text, nil
 }
 
 //PunishByPoetry tells interns to read random poetry
 func (b *Bot) PunishByPoetry(intern model.Intern, link string) (string, string, error) {
-	message := tgbotapi.NewMessage(-b.c.InternsChatID, fmt.Sprintf("@%s в наказание за пропущенный стэндап прочитай этот стих: %v", intern.Username, link))
+	message := tgbotapi.NewMessage(b.c.InternsChatID, fmt.Sprintf("%s в наказание за пропущенный стэндап прочитай этот стих: %v", intern.Username, link))
 	b.tgAPI.Send(message)
 	return link, message.Text, nil
 }

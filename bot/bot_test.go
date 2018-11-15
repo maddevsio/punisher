@@ -80,6 +80,7 @@ func TestIsStandup(t *testing.T) {
 }
 
 func TestHandleUpdate(t *testing.T) {
+
 	b := setupTestBot(t)
 	b.handleUpdate(tgbotapi.Update{
 		Message: &tgbotapi.Message{},
@@ -107,15 +108,42 @@ func TestHandleUpdate(t *testing.T) {
 			From: &tgbotapi.User{
 				UserName: "testUser",
 			},
-			Text: "Вчера работал. Сегодня буду работать. Проблемы: проект не запускается в докере!",
+			Text: "@internshipcomedian_bot до @antoliy",
 		},
 	})
+
+	b.handleUpdate(tgbotapi.Update{
+		Message: &tgbotapi.Message{
+			From: &tgbotapi.User{
+				UserName: "testUser",
+			},
+			Text: "@internshipcomedian_bot добавь @antoliyfedorenko",
+		},
+	})
+
+	interns, err := b.db.ListInterns()
+	assert.NoError(t, err)
+	assert.Equal(t, 0, len(interns))
+
+	b.handleUpdate(tgbotapi.Update{
+		Message: &tgbotapi.Message{
+			From: &tgbotapi.User{
+				UserName: "testUser",
+			},
+			Text: "@internshipcomedian_bot удали @antoliyfedorenko",
+		},
+	})
+
+	interns, err = b.db.ListInterns()
+	assert.NoError(t, err)
+	assert.Equal(t, 0, len(interns))
 
 	standups, err := b.db.ListStandups()
 	assert.NoError(t, err)
 	for _, standup := range standups {
 		assert.NoError(t, b.db.DeleteStandup(standup.ID))
 	}
+
 }
 
 func TestRemoveLives(t *testing.T) {
