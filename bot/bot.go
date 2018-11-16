@@ -20,8 +20,8 @@ import (
 
 const (
 	telegramAPIUpdateInterval = 60
-	minPushUps                = 20
-	maxPushUps                = 100
+	minPushUps                = 10
+	maxPushUps                = 150
 )
 
 // Bot ...
@@ -283,6 +283,15 @@ func (b *Bot) PunishByPushUps(intern model.Intern, min, max int) (int, string, e
 	return pushUps, message.Text, nil
 }
 
+//PunishByMakingSnowFlakes tells interns to do random # of pushups
+func (b *Bot) PunishByMakingSnowFlakes(intern model.Intern, min, max int) (int, string, error) {
+	rand.Seed(time.Now().Unix())
+	snowFlakes := rand.Intn(max-min) + min
+	message := tgbotapi.NewMessage(b.c.InternsChatID, fmt.Sprintf("%s, в наказание за пропущенный стэндап c тебя %d снежинок!", intern.Username, snowFlakes))
+	b.tgAPI.Send(message)
+	return snowFlakes, message.Text, nil
+}
+
 //PunishBySitUps tells interns to do random # of pushups
 func (b *Bot) PunishBySitUps(intern model.Intern, min, max int) (int, string, error) {
 	rand.Seed(time.Now().Unix())
@@ -304,6 +313,8 @@ func (b *Bot) Punish(intern model.Intern) {
 	switch punishment := b.c.PunishmentType; punishment {
 	case "pushups":
 		b.PunishByPushUps(intern, minPushUps, maxPushUps)
+	case "snowflakes":
+		b.PunishByMakingSnowFlakes(intern, 10, 150)
 	case "removelives":
 		b.RemoveLives(intern)
 	case "situps":
