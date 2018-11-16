@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"math/rand"
 	"net/http"
 	"strings"
@@ -15,14 +14,14 @@ import (
 	"github.com/maddevsio/punisher/model"
 	"github.com/maddevsio/punisher/storage"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 	"gopkg.in/telegram-bot-api.v4"
 )
 
 const (
 	telegramAPIUpdateInterval = 60
-	maxResults                = 20
-	minPushUps                = 50
-	maxPushUps                = 500
+	minPushUps                = 20
+	maxPushUps                = 100
 )
 
 // Bot ...
@@ -65,7 +64,7 @@ func (b *Bot) Start() {
 	go func() {
 		<-gocron.Start()
 	}()
-	log.Println("Starting tg bot")
+	logrus.Info("Starting tg bot\n")
 	for update := range b.updates {
 		b.handleUpdate(update)
 	}
@@ -80,78 +79,89 @@ func (b *Bot) handleUpdate(update tgbotapi.Update) {
 		return
 	}
 
-	isAdmin, err := b.senderIsAdminInChannel(update.Message.From.UserName)
-	if err != nil {
-		fmt.Println("WHO THE HELL IS THIS GUY?")
+	if !strings.Contains(text, "@"+b.tgAPI.Self.UserName) {
+		return
 	}
+
+	logrus.Infof("New MSG from [%v] chat [%v]\n", update.Message.From.UserName, update.Message.Chat.ID)
+
+	isAdmin, err := b.senderIsAdminInChannel(update.Message.From.UserName, update.Message.Chat.ID)
+	if err != nil {
+		logrus.Errorf("senderIsAdminInChannel func failed: [%v]\n", err)
+	}
+
 	s := strings.Split(update.Message.Text, " ")
-	fmt.Println(s)
-	fmt.Println(b.tgAPI.Self.UserName)
 	if s[0] == "@"+b.tgAPI.Self.UserName && (s[1] == "добавь" || s[1] == "удали") && s[2] != "" && isAdmin {
 		switch c := s[1]; c {
 		case "добавь":
-			fmt.Printf("Добавляю стажёра: %s в БД", s[2])
+			logrus.Infof("Add intern: %s to DB\n", s[2])
 			intern := model.Intern{0, s[2], 3}
 			_, err := b.db.CreateIntern(intern)
 			if err != nil {
-				fmt.Println(err)
+				logrus.Errorf("CreateIntern failed: %v", err)
 				return
 			}
 			b.tgAPI.Send(tgbotapi.NewMessage(b.c.InternsChatID, fmt.Sprintf("%s, я слежу за тобой.", intern.Username)))
 
 		case "удали":
-			fmt.Printf("Удаляю стажёра: %s из БД", s[2])
+			logrus.Infof("Remove intern: %s from DB\n", s[2])
 			intern, err := b.db.FindIntern(s[2])
 			if err != nil {
-				fmt.Println(err)
+				logrus.Errorf("FindIntern failed: %v", err)
 				return
 			}
 			err = b.db.DeleteIntern(intern.ID)
 			if err != nil {
-				fmt.Println(err)
+				logrus.Errorf("DeleteIntern failed: %v", err)
 				return
 			}
 			b.tgAPI.Send(tgbotapi.NewMessage(b.c.InternsChatID, fmt.Sprintf("%s, я больше не слежу за тобой.", intern.Username)))
 		}
-	}
+	} else {
+		if b.isStandup(update.Message) {
+			logrus.Infof("accepted standup from %s\n", update.Message.From.UserName)
+			standup := model.Standup{
+				Comment:  update.Message.Text,
+				Username: update.Message.From.UserName,
+			}
+			_, err := b.db.CreateStandup(standup)
+			if err != nil {
+				logrus.Errorf("CreateStandup failed: %v\n", err)
+				return
+			}
+			b.tgAPI.Send(tgbotapi.NewMessage(b.c.InternsChatID, fmt.Sprintf("@%s спасибо. Я принял твой стендап", update.Message.From.UserName)))
 
-	if b.isStandup(update.Message) {
-		fmt.Printf("accepted standup from %s\n", update.Message.From.UserName)
-		standup := model.Standup{
-			Comment:  update.Message.Text,
-			Username: update.Message.From.UserName,
-		}
-		_, err := b.db.CreateStandup(standup)
-		if err != nil {
-			log.Println(err)
-			return
-		}
-		b.tgAPI.Send(tgbotapi.NewMessage(b.c.InternsChatID, fmt.Sprintf("@%s спасибо. Я принял твой стендап", update.Message.From.UserName)))
+			if b.c.NotifyMentors {
+				b.tgAPI.Send(tgbotapi.ForwardConfig{
+					FromChannelUsername: update.Message.From.UserName,
+					FromChatID:          b.c.InternsChatID,
+					MessageID:           update.Message.MessageID,
+					BaseChat:            tgbotapi.BaseChat{ChatID: b.c.MentorsChat},
+				})
+			}
 
-		if b.c.NotifyMentors {
-			b.tgAPI.Send(tgbotapi.ForwardConfig{
-				FromChannelUsername: update.Message.From.UserName,
-				FromChatID:          b.c.InternsChatID,
-				MessageID:           update.Message.MessageID,
-				BaseChat:            tgbotapi.BaseChat{ChatID: b.c.MentorsChat},
-			})
 		}
-
 	}
 
 	if update.EditedMessage != nil {
-		if !b.isStandup(update.EditedMessage) {
-			fmt.Printf("This is not a proper edit for standup: %s\n", update.EditedMessage.Text)
+
+		if !strings.Contains(text, "@"+b.tgAPI.Self.UserName) {
+			logrus.Info("MSG does not mention botuser\n")
 			return
 		}
-		fmt.Printf("accepted edited standup from %s\n", update.EditedMessage.From.UserName)
+
+		if !b.isStandup(update.EditedMessage) {
+			logrus.Infof("This is not a proper edit for standup: %s\n", update.EditedMessage.Text)
+			return
+		}
+		logrus.Infof("accepted edited standup from %s\n", update.EditedMessage.From.UserName)
 		standup := model.Standup{
 			Comment:  update.EditedMessage.Text,
 			Username: update.EditedMessage.From.UserName,
 		}
 		_, err := b.db.UpdateStandup(standup)
 		if err != nil {
-			log.Println(err)
+			logrus.Errorf("UpdateStandup failed: %v\n", err)
 			return
 		}
 		b.tgAPI.Send(tgbotapi.NewMessage(b.c.InternsChatID, fmt.Sprintf("@%s спасибо. исправления приняты.", update.Message.From.UserName)))
@@ -160,13 +170,13 @@ func (b *Bot) handleUpdate(update tgbotapi.Update) {
 
 func (b *Bot) dailyJob() {
 	if _, err := b.checkStandups(); err != nil {
-		log.Println(err)
+		logrus.Errorf("checkStandups failed: %v\n", err)
 	}
 }
 
-func (b *Bot) senderIsAdminInChannel(sendername string) (bool, error) {
+func (b *Bot) senderIsAdminInChannel(sendername string, chatID int64) (bool, error) {
 	isAdmin := false
-	chat := tgbotapi.ChatConfig{b.c.InternsChatID, ""}
+	chat := tgbotapi.ChatConfig{chatID, ""}
 	admins, err := b.tgAPI.GetChatAdministrators(chat)
 	if err != nil {
 		return false, err
@@ -181,6 +191,7 @@ func (b *Bot) senderIsAdminInChannel(sendername string) (bool, error) {
 }
 
 func (b *Bot) checkStandups() (string, error) {
+	logrus.Info("Start checkStandups")
 	if time.Now().Weekday().String() == "Saturday" || time.Now().Weekday().String() == "Sunday" {
 		return "", errors.New("day off")
 	}
@@ -191,6 +202,7 @@ func (b *Bot) checkStandups() (string, error) {
 	for _, intern := range interns {
 		standup, err := b.db.LastStandupFor(intern.Username)
 		if err != nil {
+			logrus.Info("Intern does not have any standups! Punish")
 			if err == sql.ErrNoRows {
 				b.Punish(intern)
 				continue
@@ -200,6 +212,8 @@ func (b *Bot) checkStandups() (string, error) {
 		}
 		t, _ := time.LoadLocation("Asia/Bishkek")
 		if time.Now().Day() != standup.Created.In(t).Day() {
+			logrus.Infof("Today is %v; last standup created at [%v]", time.Now().Day(), standup.Created.In(t).Day())
+			logrus.Info("Intern did not submit standup today! Punish!")
 			b.Punish(intern)
 		}
 	}
@@ -209,7 +223,7 @@ func (b *Bot) checkStandups() (string, error) {
 }
 
 func (b *Bot) isStandup(message *tgbotapi.Message) bool {
-	log.Println("checking accepted message")
+	logrus.Info("checking message...\n")
 	var mentionsProblem, mentionsYesterdayWork, mentionsTodayPlans bool
 
 	problemKeys := []string{"роблем", "рудност", "атрдуднен"}
