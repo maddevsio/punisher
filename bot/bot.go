@@ -20,8 +20,6 @@ import (
 
 const (
 	telegramAPIUpdateInterval = 60
-	minPushUps                = 10
-	maxPushUps                = 150
 )
 
 // Bot ...
@@ -95,7 +93,8 @@ func (b *Bot) handleUpdate(update tgbotapi.Update) {
 		switch c := s[1]; c {
 		case "добавь":
 			logrus.Infof("Add intern: %s to DB\n", s[2])
-			intern := model.Intern{0, s[2], 3}
+			username := strings.Replace(s[2], "@", "", -1)
+			intern := model.Intern{0, username, 3}
 			_, err := b.db.CreateIntern(intern)
 			if err != nil {
 				logrus.Errorf("CreateIntern failed: %v", err)
@@ -105,7 +104,8 @@ func (b *Bot) handleUpdate(update tgbotapi.Update) {
 
 		case "удали":
 			logrus.Infof("Remove intern: %s from DB\n", s[2])
-			intern, err := b.db.FindIntern(s[2])
+			username := strings.Replace(s[2], "@", "", -1)
+			intern, err := b.db.FindIntern(username)
 			if err != nil {
 				logrus.Errorf("FindIntern failed: %v", err)
 				return
@@ -312,16 +312,18 @@ func (b *Bot) PunishByPoetry(intern model.Intern, link string) (string, string, 
 func (b *Bot) Punish(intern model.Intern) {
 	switch punishment := b.c.PunishmentType; punishment {
 	case "pushups":
-		b.PunishByPushUps(intern, minPushUps, maxPushUps)
+		b.PunishByPushUps(intern, 5, 100)
 	case "snowflakes":
 		b.PunishByMakingSnowFlakes(intern, 10, 150)
 	case "removelives":
 		b.RemoveLives(intern)
 	case "situps":
-		b.PunishBySitUps(intern, minPushUps, maxPushUps)
+		b.PunishBySitUps(intern, 20, 200)
 	case "poetry":
 		link := generatePoetryLink()
 		b.PunishByPoetry(intern, link)
+	case "random":
+		b.randomPunishment(intern)
 	default:
 		b.randomPunishment(intern)
 	}
@@ -329,16 +331,18 @@ func (b *Bot) Punish(intern model.Intern) {
 
 func (b *Bot) randomPunishment(intern model.Intern) {
 	rand.Seed(time.Now().Unix())
-	switch r := rand.Intn(3); r {
+	switch r := rand.Intn(4); r {
 	case 0:
-		b.PunishByPushUps(intern, minPushUps, maxPushUps)
+		b.PunishByMakingSnowFlakes(intern, 10, 150)
 	case 1:
 		b.RemoveLives(intern)
 	case 2:
-		b.PunishBySitUps(intern, minPushUps, maxPushUps)
+		b.PunishBySitUps(intern, 20, 200)
 	case 3:
 		link := generatePoetryLink()
 		b.PunishByPoetry(intern, link)
+	case 4:
+		b.PunishByPushUps(intern, 5, 100)
 	}
 }
 
