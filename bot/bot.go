@@ -100,7 +100,7 @@ func (b *Bot) handleUpdate(update tgbotapi.Update) {
 				logrus.Errorf("CreateIntern failed: %v", err)
 				return
 			}
-			b.tgAPI.Send(tgbotapi.NewMessage(b.c.InternsChatID, fmt.Sprintf("%s, я слежу за тобой.", intern.Username)))
+			b.tgAPI.Send(tgbotapi.NewMessage(b.c.InternsChatID, fmt.Sprintf("@%s, я слежу за тобой.", intern.Username)))
 
 		case "удали":
 			logrus.Infof("Remove intern: %s from DB\n", s[2])
@@ -115,7 +115,7 @@ func (b *Bot) handleUpdate(update tgbotapi.Update) {
 				logrus.Errorf("DeleteIntern failed: %v", err)
 				return
 			}
-			b.tgAPI.Send(tgbotapi.NewMessage(b.c.InternsChatID, fmt.Sprintf("%s, я больше не слежу за тобой.", intern.Username)))
+			b.tgAPI.Send(tgbotapi.NewMessage(b.c.InternsChatID, fmt.Sprintf("@%s, я больше не слежу за тобой.", intern.Username)))
 		}
 	} else {
 		if b.isStandup(update.Message) {
@@ -278,7 +278,7 @@ func (b *Bot) RemoveLives(intern model.Intern) (string, error) {
 func (b *Bot) PunishByPushUps(intern model.Intern, min, max int) (int, string, error) {
 	rand.Seed(time.Now().Unix())
 	pushUps := rand.Intn(max-min) + min
-	message := tgbotapi.NewMessage(b.c.InternsChatID, fmt.Sprintf("%s в наказание за пропущенный стэндап тебе %d отжиманий", intern.Username, pushUps))
+	message := tgbotapi.NewMessage(b.c.InternsChatID, fmt.Sprintf("@%s в наказание за пропущенный стэндап тебе %d отжиманий", intern.Username, pushUps))
 	b.tgAPI.Send(message)
 	return pushUps, message.Text, nil
 }
@@ -287,7 +287,7 @@ func (b *Bot) PunishByPushUps(intern model.Intern, min, max int) (int, string, e
 func (b *Bot) PunishByMakingSnowFlakes(intern model.Intern, min, max int) (int, string, error) {
 	rand.Seed(time.Now().Unix())
 	snowFlakes := rand.Intn(max-min) + min
-	message := tgbotapi.NewMessage(b.c.InternsChatID, fmt.Sprintf("%s, в наказание за пропущенный стэндап c тебя %d снежинок!", intern.Username, snowFlakes))
+	message := tgbotapi.NewMessage(b.c.InternsChatID, fmt.Sprintf("@%s, в наказание за пропущенный стэндап c тебя %d снежинок!", intern.Username, snowFlakes))
 	b.tgAPI.Send(message)
 	return snowFlakes, message.Text, nil
 }
@@ -296,14 +296,14 @@ func (b *Bot) PunishByMakingSnowFlakes(intern model.Intern, min, max int) (int, 
 func (b *Bot) PunishBySitUps(intern model.Intern, min, max int) (int, string, error) {
 	rand.Seed(time.Now().Unix())
 	situps := rand.Intn(max-min) + min
-	message := tgbotapi.NewMessage(b.c.InternsChatID, fmt.Sprintf("%s в наказание за пропущенный стэндап тебе %d приседаний", intern.Username, situps))
+	message := tgbotapi.NewMessage(b.c.InternsChatID, fmt.Sprintf("@%s в наказание за пропущенный стэндап тебе %d приседаний", intern.Username, situps))
 	b.tgAPI.Send(message)
 	return situps, message.Text, nil
 }
 
 //PunishByPoetry tells interns to read random poetry
 func (b *Bot) PunishByPoetry(intern model.Intern, link string) (string, string, error) {
-	message := tgbotapi.NewMessage(b.c.InternsChatID, fmt.Sprintf("%s в наказание за пропущенный стэндап прочитай этот стих: %v", intern.Username, link))
+	message := tgbotapi.NewMessage(b.c.InternsChatID, fmt.Sprintf("@%s в наказание за пропущенный стэндап прочитай этот стих на весь офис: %v", intern.Username, link))
 	b.tgAPI.Send(message)
 	return link, message.Text, nil
 }
