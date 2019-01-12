@@ -13,15 +13,12 @@ import (
 	"github.com/maddevsio/punisher/config"
 	"github.com/maddevsio/punisher/model"
 	"github.com/maddevsio/punisher/storage"
-	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/telegram-bot-api.v4"
 )
 
 const (
 	telegramAPIUpdateInterval = 60
-	minPushUps                = 20
-	maxPushUps                = 100
 )
 
 // Bot ...
@@ -71,6 +68,7 @@ func (b *Bot) Start() {
 }
 
 func (b *Bot) handleUpdate(update tgbotapi.Update) {
+
 	if update.Message == nil {
 		return
 	}
@@ -83,9 +81,11 @@ func (b *Bot) handleUpdate(update tgbotapi.Update) {
 		return
 	}
 
-	logrus.Infof("New MSG from [%v] chat [%v]\n", update.Message.From.UserName, update.Message.Chat.ID)
+	channel := update.Message.Chat.ID
 
-	isAdmin, err := b.senderIsAdminInChannel(update.Message.From.UserName, update.Message.Chat.ID)
+	logrus.Infof("New MSG from [%v] chat [%v]\n", update.Message.From.UserName, channel)
+
+	isAdmin, err := b.senderIsAdminInChannel(update.Message.From.UserName, channel)
 	if err != nil {
 		logrus.Errorf("senderIsAdminInChannel func failed: [%v]\n", err)
 	}
@@ -95,27 +95,37 @@ func (b *Bot) handleUpdate(update tgbotapi.Update) {
 		switch c := s[1]; c {
 		case "добавь":
 			logrus.Infof("Add intern: %s to DB\n", s[2])
-			intern := model.Intern{0, s[2], 3}
-			_, err := b.db.CreateIntern(intern)
+			username := strings.Replace(s[2], "@", "", -1)
+			intern := model.Intern{0, username, 3, channel}
+			_, err := b.db.FindIntern(username, channel)
 			if err != nil {
-				logrus.Errorf("CreateIntern failed: %v", err)
-				return
+				_, err := b.db.CreateIntern(intern)
+				if err != nil {
+					logrus.Errorf("CreateIntern failed: %v", err)
+					b.tgAPI.Send(tgbotapi.NewMessage(channel, fmt.Sprintf("не буду следить за @%s", intern.Username)))
+					return
+				}
+				b.tgAPI.Send(tgbotapi.NewMessage(channel, fmt.Sprintf("@%s, я слежу за тобой.", intern.Username)))
+			} else {
+				b.tgAPI.Send(tgbotapi.NewMessage(channel, fmt.Sprintf("Уже слежу за @%s, зачем 2 раза просить?", intern.Username)))
 			}
-			b.tgAPI.Send(tgbotapi.NewMessage(b.c.InternsChatID, fmt.Sprintf("%s, я слежу за тобой.", intern.Username)))
 
 		case "удали":
 			logrus.Infof("Remove intern: %s from DB\n", s[2])
-			intern, err := b.db.FindIntern(s[2])
+			username := strings.Replace(s[2], "@", "", -1)
+			intern, err := b.db.FindIntern(username, channel)
 			if err != nil {
 				logrus.Errorf("FindIntern failed: %v", err)
+				b.tgAPI.Send(tgbotapi.NewMessage(channel, fmt.Sprintf("да я и не следил за @%s, а надо было?", username)))
 				return
 			}
 			err = b.db.DeleteIntern(intern.ID)
 			if err != nil {
 				logrus.Errorf("DeleteIntern failed: %v", err)
+				b.tgAPI.Send(tgbotapi.NewMessage(channel, fmt.Sprintf("мне @%s очень нравится... Дальше послежу!", intern.Username)))
 				return
 			}
-			b.tgAPI.Send(tgbotapi.NewMessage(b.c.InternsChatID, fmt.Sprintf("%s, я больше не слежу за тобой.", intern.Username)))
+			b.tgAPI.Send(tgbotapi.NewMessage(channel, fmt.Sprintf("@%s, я больше не слежу за тобой.", intern.Username)))
 		}
 	} else {
 		if b.isStandup(update.Message) {
@@ -127,14 +137,15 @@ func (b *Bot) handleUpdate(update tgbotapi.Update) {
 			_, err := b.db.CreateStandup(standup)
 			if err != nil {
 				logrus.Errorf("CreateStandup failed: %v\n", err)
+				b.tgAPI.Send(tgbotapi.NewMessage(channel, fmt.Sprintf("@%s у тебя кажется норм стендап, но сохранять его не буду.", update.Message.From.UserName)))
 				return
 			}
-			b.tgAPI.Send(tgbotapi.NewMessage(b.c.InternsChatID, fmt.Sprintf("@%s спасибо. Я принял твой стендап", update.Message.From.UserName)))
+			b.tgAPI.Send(tgbotapi.NewMessage(channel, fmt.Sprintf("@%s спасибо. Я принял твой стендап", update.Message.From.UserName)))
 
 			if b.c.NotifyMentors {
 				b.tgAPI.Send(tgbotapi.ForwardConfig{
 					FromChannelUsername: update.Message.From.UserName,
-					FromChatID:          b.c.InternsChatID,
+					FromChatID:          channel,
 					MessageID:           update.Message.MessageID,
 					BaseChat:            tgbotapi.BaseChat{ChatID: b.c.MentorsChat},
 				})
@@ -144,6 +155,7 @@ func (b *Bot) handleUpdate(update tgbotapi.Update) {
 	}
 
 	if update.EditedMessage != nil {
+		channel = update.EditedMessage.Chat.ID
 
 		if !strings.Contains(text, "@"+b.tgAPI.Self.UserName) {
 			logrus.Info("MSG does not mention botuser\n")
@@ -164,7 +176,7 @@ func (b *Bot) handleUpdate(update tgbotapi.Update) {
 			logrus.Errorf("UpdateStandup failed: %v\n", err)
 			return
 		}
-		b.tgAPI.Send(tgbotapi.NewMessage(b.c.InternsChatID, fmt.Sprintf("@%s спасибо. исправления приняты.", update.Message.From.UserName)))
+		b.tgAPI.Send(tgbotapi.NewMessage(channel, fmt.Sprintf("@%s спасибо. исправления приняты.", update.Message.From.UserName)))
 	}
 }
 
@@ -192,15 +204,15 @@ func (b *Bot) senderIsAdminInChannel(sendername string, chatID int64) (bool, err
 
 func (b *Bot) checkStandups() (string, error) {
 	logrus.Info("Start checkStandups")
-	if time.Now().Weekday().String() == "Saturday" || time.Now().Weekday().String() == "Sunday" {
-		return "", errors.New("day off")
-	}
+	// if time.Now().Weekday().String() == "Saturday" || time.Now().Weekday().String() == "Sunday" {
+	// 	return "", errors.New("day off")
+	// }
 	interns, err := b.db.ListInterns()
 	if err != nil {
 		return "", err
 	}
 	for _, intern := range interns {
-		standup, err := b.db.LastStandupFor(intern.Username)
+		standup, err := b.db.LastStandupFor(intern.Username, intern.GroupID)
 		if err != nil {
 			logrus.Info("Intern does not have any standups! Punish")
 			if err == sql.ErrNoRows {
@@ -217,16 +229,23 @@ func (b *Bot) checkStandups() (string, error) {
 			b.Punish(intern)
 		}
 	}
-	message := tgbotapi.NewMessage(b.c.InternsChatID, "Каратель завершил свою работу ;)")
-	b.tgAPI.Send(message)
-	return message.Text, nil
+	groups, err := b.db.ListGroups()
+	if err != nil {
+		return "", err
+	}
+	for _, group := range groups {
+		message := tgbotapi.NewMessage(group, "Каратель завершил свою работу ;)")
+		b.tgAPI.Send(message)
+	}
+
+	return "Каратель завершил свою работу ;)", nil
 }
 
 func (b *Bot) isStandup(message *tgbotapi.Message) bool {
 	logrus.Info("checking message...\n")
 	var mentionsProblem, mentionsYesterdayWork, mentionsTodayPlans bool
 
-	problemKeys := []string{"роблем", "рудност", "атрдуднен"}
+	problemKeys := []string{"роблем", "рудност", "атруднен", "блок"}
 	for _, problem := range problemKeys {
 		if strings.Contains(message.Text, problem) {
 			mentionsProblem = true
@@ -256,10 +275,10 @@ func (b *Bot) RemoveLives(intern model.Intern) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	message := tgbotapi.NewMessage(b.c.InternsChatID, fmt.Sprintf("@%s осталось жизней: %d", intern.Username, intern.Lives))
+	message := tgbotapi.NewMessage(intern.GroupID, fmt.Sprintf("@%s осталось жизней: %d", intern.Username, intern.Lives))
 	if intern.Lives == 0 {
 		chatMemberConf := tgbotapi.ChatMemberConfig{
-			ChatID: b.c.InternsChatID,
+			ChatID: intern.GroupID,
 			UserID: int(intern.ID),
 		}
 		conf := tgbotapi.KickChatMemberConfig{chatMemberConf, 0}
@@ -268,7 +287,7 @@ func (b *Bot) RemoveLives(intern model.Intern) (string, error) {
 			fmt.Println(err)
 		}
 		fmt.Println(r)
-		message = tgbotapi.NewMessage(b.c.InternsChatID, fmt.Sprintf("У @%s не осталось жизней. Удаляю.", intern.Username))
+		message = tgbotapi.NewMessage(intern.GroupID, fmt.Sprintf("У @%s не осталось жизней. Удаляю.", intern.Username))
 	}
 	b.tgAPI.Send(message)
 	return message.Text, nil
@@ -278,23 +297,32 @@ func (b *Bot) RemoveLives(intern model.Intern) (string, error) {
 func (b *Bot) PunishByPushUps(intern model.Intern, min, max int) (int, string, error) {
 	rand.Seed(time.Now().Unix())
 	pushUps := rand.Intn(max-min) + min
-	message := tgbotapi.NewMessage(b.c.InternsChatID, fmt.Sprintf("%s в наказание за пропущенный стэндап тебе %d отжиманий", intern.Username, pushUps))
+	message := tgbotapi.NewMessage(intern.GroupID, fmt.Sprintf("@%s в наказание за пропущенный стэндап тебе %d отжиманий", intern.Username, pushUps))
 	b.tgAPI.Send(message)
 	return pushUps, message.Text, nil
+}
+
+//PunishByMakingSnowFlakes tells interns to do random # of pushups
+func (b *Bot) PunishByMakingSnowFlakes(intern model.Intern, min, max int) (int, string, error) {
+	rand.Seed(time.Now().Unix())
+	snowFlakes := rand.Intn(max-min) + min
+	message := tgbotapi.NewMessage(intern.GroupID, fmt.Sprintf("@%s, в наказание за пропущенный стэндап c тебя %d снежинок!", intern.Username, snowFlakes))
+	b.tgAPI.Send(message)
+	return snowFlakes, message.Text, nil
 }
 
 //PunishBySitUps tells interns to do random # of pushups
 func (b *Bot) PunishBySitUps(intern model.Intern, min, max int) (int, string, error) {
 	rand.Seed(time.Now().Unix())
 	situps := rand.Intn(max-min) + min
-	message := tgbotapi.NewMessage(b.c.InternsChatID, fmt.Sprintf("%s в наказание за пропущенный стэндап тебе %d приседаний", intern.Username, situps))
+	message := tgbotapi.NewMessage(intern.GroupID, fmt.Sprintf("@%s в наказание за пропущенный стэндап тебе %d приседаний", intern.Username, situps))
 	b.tgAPI.Send(message)
 	return situps, message.Text, nil
 }
 
 //PunishByPoetry tells interns to read random poetry
 func (b *Bot) PunishByPoetry(intern model.Intern, link string) (string, string, error) {
-	message := tgbotapi.NewMessage(b.c.InternsChatID, fmt.Sprintf("%s в наказание за пропущенный стэндап прочитай этот стих: %v", intern.Username, link))
+	message := tgbotapi.NewMessage(intern.GroupID, fmt.Sprintf("@%s в наказание за пропущенный стэндап прочитай этот стих на весь офис: %v", intern.Username, link))
 	b.tgAPI.Send(message)
 	return link, message.Text, nil
 }
@@ -303,14 +331,18 @@ func (b *Bot) PunishByPoetry(intern model.Intern, link string) (string, string, 
 func (b *Bot) Punish(intern model.Intern) {
 	switch punishment := b.c.PunishmentType; punishment {
 	case "pushups":
-		b.PunishByPushUps(intern, minPushUps, maxPushUps)
+		b.PunishByPushUps(intern, 5, 100)
+	case "snowflakes":
+		b.PunishByMakingSnowFlakes(intern, 10, 150)
 	case "removelives":
 		b.RemoveLives(intern)
 	case "situps":
-		b.PunishBySitUps(intern, minPushUps, maxPushUps)
+		b.PunishBySitUps(intern, 20, 200)
 	case "poetry":
 		link := generatePoetryLink()
 		b.PunishByPoetry(intern, link)
+	case "random":
+		b.randomPunishment(intern)
 	default:
 		b.randomPunishment(intern)
 	}
@@ -318,16 +350,18 @@ func (b *Bot) Punish(intern model.Intern) {
 
 func (b *Bot) randomPunishment(intern model.Intern) {
 	rand.Seed(time.Now().Unix())
-	switch r := rand.Intn(3); r {
+	switch r := rand.Intn(4); r {
 	case 0:
-		b.PunishByPushUps(intern, minPushUps, maxPushUps)
+		b.PunishByMakingSnowFlakes(intern, 10, 150)
 	case 1:
 		b.RemoveLives(intern)
 	case 2:
-		b.PunishBySitUps(intern, minPushUps, maxPushUps)
+		b.PunishBySitUps(intern, 20, 200)
 	case 3:
 		link := generatePoetryLink()
 		b.PunishByPoetry(intern, link)
+	case 4:
+		b.PunishByPushUps(intern, 5, 100)
 	}
 }
 

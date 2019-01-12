@@ -20,9 +20,12 @@ services:
     image: hub.maddevs.co/punisher
     restart: always
     environment:
-      - TELEGRAM_TOKEN=${TELEGRAM_TOKEN}
-      - DATABASE_URL=${DATABASE_URL}
-      - PUNISH_TIME=${PUNISH_TIME}
-      - INTERNS_CHAT_ID=${INTERNS_CHAT}
+      - MENTORS_CHAT=${BOT_MENTORS_CHAT}
+      - NOTIFY_MENTORS=${BOT_NOTIFY_MENTORS}
+      - PUNISHMENT_TYPE=${BOT_PUNISHMENT_TYPE}
+      - INTERNS_CHAT_ID=${BOT_INTERNS_CHAT_ID}
+      - PUNISH_TIME=${BOT_PUNISH_TIME}
+      - DATABASE_URL=${BOT_DATABASE_URL}
+      - TELEGRAM_TOKEN=${BOT_TELEGRAM_TOKEN}
     networks:
       - punisher
