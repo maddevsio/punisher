@@ -28,8 +28,8 @@ func NewMySQL(c *config.BotConfig) (*MySQL, error) {
 // CreateStandup creates standup entry in database
 func (m *MySQL) CreateStandup(s model.Standup) (model.Standup, error) {
 	res, err := m.conn.Exec(
-		"INSERT INTO `standup` (created, modified, username, comment) VALUES (?, ?, ?, ?)",
-		time.Now().UTC(), time.Now().UTC(), s.Username, s.Comment,
+		"INSERT INTO `standup` (created, modified, username, comment, groupid) VALUES (?, ?, ?, ?, ?)",
+		time.Now().UTC(), time.Now().UTC(), s.Username, s.Comment, s.GroupID,
 	)
 	if err != nil {
 		return s, err
@@ -71,17 +71,17 @@ func (m *MySQL) ListStandups() ([]model.Standup, error) {
 }
 
 //LastStandupFor returns last standup for intern
-func (m *MySQL) LastStandupFor(username string) (model.Standup, error) {
+func (m *MySQL) LastStandupFor(username string, groupID int64) (model.Standup, error) {
 	var standup model.Standup
-	err := m.conn.Get(&standup, "SELECT * FROM `standup` WHERE username=? ORDER BY id DESC LIMIT 1", username)
+	err := m.conn.Get(&standup, "SELECT * FROM `standup` WHERE username=? and groupid=? ORDER BY id DESC LIMIT 1", username, groupID)
 	return standup, err
 }
 
 // CreateIntern creates intern
 func (m *MySQL) CreateIntern(s model.Intern) (model.Intern, error) {
 	res, _ := m.conn.Exec(
-		"INSERT INTO `interns` (username, lives) VALUES (?, ?)",
-		s.Username, s.Lives,
+		"INSERT INTO `interns` (username, lives, groupid) VALUES (?, ?, ?)",
+		s.Username, s.Lives, s.GroupID,
 	)
 	id, _ := res.LastInsertId()
 	s.ID = id
@@ -107,9 +107,9 @@ func (m *MySQL) SelectIntern(id int64) (model.Intern, error) {
 }
 
 // FindIntern selects intern entry from database
-func (m *MySQL) FindIntern(name string) (model.Intern, error) {
+func (m *MySQL) FindIntern(name string, groupID int64) (model.Intern, error) {
 	var s model.Intern
-	err := m.conn.Get(&s, "SELECT * FROM `interns` WHERE username=?", name)
+	err := m.conn.Get(&s, "SELECT * FROM `interns` WHERE username=? and groupid=?", name, groupID)
 	return s, err
 }
 
@@ -124,4 +124,11 @@ func (m *MySQL) ListInterns() ([]model.Intern, error) {
 	items := []model.Intern{}
 	err := m.conn.Select(&items, "SELECT * FROM `interns`")
 	return items, err
+}
+
+//ListGroups lists unique groups the bot is added to
+func (m *MySQL) ListGroups() ([]int64, error) {
+	groups := []int64{}
+	err := m.conn.Select(&groups, "SELECT distinct groupid FROM `interns`")
+	return groups, err
 }
