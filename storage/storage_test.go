@@ -68,6 +68,7 @@ func TestInternFunctionality(t *testing.T) {
 		Comment:  "work very hard after 1 sec",
 		Username: "user",
 	})
+	assert.NoError(t, err)
 
 	lastStandup, err := m.LastStandupFor("user")
 	assert.NoError(t, err)
