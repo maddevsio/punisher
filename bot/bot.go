@@ -2,6 +2,7 @@ package bot
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"math/rand"
@@ -204,9 +205,9 @@ func (b *Bot) senderIsAdminInChannel(sendername string, chatID int64) (bool, err
 
 func (b *Bot) checkStandups() (string, error) {
 	logrus.Info("Start checkStandups")
-	// if time.Now().Weekday().String() == "Saturday" || time.Now().Weekday().String() == "Sunday" {
-	// 	return "", errors.New("day off")
-	// }
+	if time.Now().Weekday().String() == "Saturday" || time.Now().Weekday().String() == "Sunday" {
+		return "", errors.New("day off")
+	}
 	interns, err := b.db.ListInterns()
 	if err != nil {
 		return "", err
